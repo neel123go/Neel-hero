@@ -6,13 +6,15 @@ import app from './firebase.init';
 import { createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { Card } from 'react-bootstrap';
 import { useState } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 
 const auth = getAuth(app);
 
 function App() {
   const [user, setUser] = useState({});
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState({ value: '', error: '' });
+  const [email, setEmail] = useState({ value: '', error: '' });
+  const [userName, setUserName] = useState({ value: '', error: '' });
   const [signUp, setSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const googleProvider = new GoogleAuthProvider();
@@ -31,61 +33,97 @@ function App() {
   }
 
   const handlePassword = (event) => {
-    setPassword(event.target.value);
+    if (/(?=.*\d)(?=.*[A-Z])/.test(event.target.value)) {
+      setPassword({ value: event.target.value, error: '' });
+    } else {
+      setPassword({ value: '', error: 'Your password contains at least one digit & one uppercase character' });
+    }
   }
 
   const handleEmail = (event) => {
-    setEmail(event.target.value);
+    setEmail({ value: event.target.value, error: '' });
+  }
+
+  const handleUserName = (event) => {
+    if (/^[a-zA-Z\-]+$/.test(event.target.value)) {
+      setUserName({ value: event.target.value, error: '' });
+    } else {
+      setUserName({ value: '', error: 'Invalid user name' });
+    }
   }
 
   const handleSignUp = event => {
     event.preventDefault();
-    if (!signUp) {
-      createUserWithEmailAndPassword(auth, email, password)
-        .then(result => {
-          setUser(result.user);
-          setEmail('');
-          setPassword('');
-          console.log(result.user);
-        }).catch(error => {
-          setErrorMsg(error.message);
-        })
-    } else {
-      signInWithEmailAndPassword(auth, email, password)
-        .then(result => {
-          setUser(result.user);
-          setEmail('');
-          setPassword('');
-        }).catch(() => {
-          setErrorMsg('Your Email or Password was not matched');
-        })
+    if (email.value === '') {
+      setEmail({ value: '', error: 'Email is required' });
     }
-    event.preventDefault();
+
+    if (password.value === '') {
+      setPassword({ value: '', error: 'Password is required' });
+    }
+
+    if (email.value && password.value) {
+      if (!signUp) {
+        createUserWithEmailAndPassword(auth, email.value, password.value)
+          .then(result => {
+            setUser(result.user);
+            setEmail('');
+            setPassword('');
+            toast.success('User created successfully', { id: 'success' });
+            console.log(result.user);
+          }).catch(error => {
+            if (error.message.includes('email-already-in-use')) {
+              toast.error('User already exist', { id: 'error' });
+            }
+          })
+      } else {
+        signInWithEmailAndPassword(auth, email.value, password.value)
+          .then(result => {
+            setUser(result.user);
+            setEmail('');
+            setPassword('');
+          }).catch(() => {
+            setErrorMsg('Your Email or Password was not matched');
+          })
+      }
+      event.preventDefault();
+    }
   }
 
   const handleLogOut = () => {
     setUser({});
+    toast.success('User logout successfully', { id: 'logout' });
   }
 
 
   return (
     <div className="d-flex">
+      <Toaster />
       <div className='w-100'>
-        <h2 className='mt-5 text-primary text-center'>The original Hero <span className='text-danger'>Neel</span></h2>
+        <h2 className='mt-5 pt-5 text-primary text-center'>The original Hero <span className='text-danger'>Neel</span></h2>
         <Form onSubmit={handleSignUp} className='w-75 mx-auto border border-danger p-5 mt-5 rounded-3'>
           <h5 className='text-center mb-5 text-danger'>{errorMsg}</h5>
-          <Form.Group className="mb-3" controlId="formBasicEmail">
-            <Form.Label>Email address</Form.Label>
-            <Form.Control onBlur={handleEmail} autoComplete='off' type="email" placeholder="Enter your email" />
-            <Form.Text className="text-muted">
-              We'll never share your email with anyone else.
-            </Form.Text>
-          </Form.Group>
+          {
+            !signUp ? <Form.Group className="mb-3">
+              <Form.Label className='fs-5'>User Name</Form.Label>
+              <Form.Control onBlur={handleUserName} autoComplete='off' type="text" placeholder="Enter your user name" />
+            </Form.Group> : ''
+          }
 
+          <Form.Group className="mb-3" controlId="formBasicEmail">
+            <Form.Label className='fs-5'>Email address</Form.Label>
+            <Form.Control onBlur={handleEmail} autoComplete='off' type="email" placeholder="Enter your email" />
+          </Form.Group>
+          {
+            email?.error && <p className='text-danger' style={{ marginTop: '-10px' }}>{email.error}</p>
+          }
           <Form.Group className="mb-3" controlId="formBasicPassword">
-            <Form.Label>Password</Form.Label>
+            <Form.Label className='fs-5'>Password</Form.Label>
             <Form.Control onBlur={handlePassword} autoComplete='off' type="password" placeholder="Enter your Password" />
           </Form.Group>
+          {
+            password?.error && <p className='text-danger' style={{ marginTop: '-10px' }}>{password.error}</p>
+          }
           <Form.Group className="my-4" controlId="formBasicCheckbox">
             <Form.Check onClick={handleSignUpSingIn} type="checkbox" label="Already SignUp?" />
           </Form.Group>
